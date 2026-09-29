@@ -1,6 +1,6 @@
 [project]
 name = "llm-doctor"
-version = "0.1.0"
+version = "0.1.1"
 description = "brew doctor for your local AI setup: duplicate weights, stale chat templates, orphan blobs, Ollama export, and an agent-readiness probe for local endpoints."
 readme = "README.md"
 license = "MIT"

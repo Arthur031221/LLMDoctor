@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1 (2026-09-30)
+
+- Release workflow: removed the PyPI publish step, which needs a trusted publisher that is not
+  set up yet. The workflow now only builds the sdist and wheel and attaches them to the GitHub
+  release. A PyPI release is coming once the account is set up.
+
 ## 0.1.0 (2026-09-30)
 
 First release.
