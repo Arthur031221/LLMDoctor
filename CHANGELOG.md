@@ -13,7 +13,8 @@ First release.
   blobs and abandoned partial downloads, logs every change to `~/.llm-doctor/fix-log.jsonl`.
 - `unbundle`: exposes Ollama models as named GGUF files with paired mmproj projectors and writes a
   llama-server `--models-preset` INI, a llama-swap config, an LM Studio folder, or an mlx-lm
-  conversion script. Translates Modelfile parameters.
+  conversion script. Translates Modelfile parameters and warns about Ollama engine-format models
+  (vision weights inside the main GGUF, built-in renderers) that llama.cpp may not load.
 - `endpoint`: agent-readiness probe for OpenAI-compatible servers and Ollama's native API. Checks
   effective context with marker recall, tool calls (names, argument schemas, parallel calls,
   streaming deltas, tool results), JSON schema output, reasoning leakage, max_tokens, prefix
