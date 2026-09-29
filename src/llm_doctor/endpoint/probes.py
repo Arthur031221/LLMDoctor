@@ -834,7 +834,7 @@ def probe_speed(st: ProbeState) -> list[Check]:
                     cid,
                     name,
                     SKIP,
-                    f"a {size:,}-token prompt does not fit the {st.effective_ctx:,}-token window",
+                    f"a prompt of {size:,} tokens does not fit the {st.effective_ctx:,}-token window",
                 )
             )
             continue

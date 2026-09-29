@@ -317,7 +317,7 @@ def endpoint(
     """Probe an OpenAI-compatible or Ollama endpoint for coding-agent readiness."""
     from llm_doctor.endpoint import run_endpoint
     from llm_doctor.endpoint.probes import PROBES
-    from llm_doctor.render import render_check, render_endpoint
+    from llm_doctor.render import render_endpoint
 
     if api not in ("openai", "ollama"):
         err.print("[red]--api must be openai or ollama[/red]")
@@ -332,19 +332,17 @@ def endpoint(
         )
         raise typer.Exit(2)
     budget = budget or (300.0 if deep else 90.0)
-    live = None if as_json else (lambda c: render_check(err, c))
-    if not as_json:
-        err.print(f"[dim]Probing {url} (budget {budget:.0f} s)...[/dim]")
-    report = run_endpoint(
-        url,
-        model=model,
-        api=api,
-        deep=deep,
-        budget=budget,
-        only=selected,
-        api_key=api_key,
-        on_check=live,
-    )
+    kwargs = {"model": model, "api": api, "deep": deep, "budget": budget, "only": selected}
+    if as_json or not err.is_terminal:
+        report = run_endpoint(url, api_key=api_key, **kwargs)
+    else:
+        # A transient status line, so the scorecard below is the only lasting output.
+        with err.status(f"Probing {url} (budget {budget:.0f} s)") as status:
+
+            def live(c) -> None:
+                status.update(f"Probing {url}: {c.name} {c.status}, running the next check")
+
+            report = run_endpoint(url, api_key=api_key, on_check=live, **kwargs)
     if as_json:
         emit_json(report.to_dict())
     else:

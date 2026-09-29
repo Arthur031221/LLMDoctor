@@ -213,14 +213,6 @@ STATUS_STYLE = {
 }
 
 
-def render_check(console: Console, c) -> None:
-    line = Text("  ")
-    line.append(f"{c.status:<5}", style=STATUS_STYLE.get(c.status, ""))
-    line.append(f" {c.name}", style="bold")
-    line.append(f"  {c.detail}", style="dim")
-    console.print(line, soft_wrap=True)
-
-
 def render_endpoint(console: Console, report) -> None:
     b = report.backend
     who = b.kind + (f" {b.version}" if b.version else "")
