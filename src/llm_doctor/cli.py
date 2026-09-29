@@ -52,6 +52,11 @@ def emit_json(data) -> None:
     sys.stdout.write(json.dumps(data, indent=2, default=str) + "\n")
 
 
+def _split(values: list[str] | None) -> list[str]:
+    """Accept both `--only a --only b` and `--only a,b`."""
+    return [v.strip() for item in values or [] for v in item.split(",") if v.strip()]
+
+
 def _version(value: bool) -> None:
     if value:
         out.print(f"llm-doctor {__version__}")
@@ -176,7 +181,7 @@ def fix(
     from llm_doctor.fix import KINDS, apply_fix, plan_fix
     from llm_doctor.render import render_fix
 
-    kinds = set(only or KINDS)
+    kinds = set(_split(only) or KINDS)
     bad = kinds - set(KINDS)
     if bad:
         err.print(
@@ -319,7 +324,7 @@ def endpoint(
         raise typer.Exit(2)
     if not url.startswith(("http://", "https://")):
         url = "http://" + url
-    selected = set(only or PROBES)
+    selected = set(_split(only) or PROBES)
     unknown = selected - set(PROBES)
     if unknown:
         err.print(

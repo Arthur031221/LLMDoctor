@@ -16,6 +16,7 @@ class BackendInfo:
     advertised_ctx: int | None = None  # what the model supports
     loaded_ctx: int | None = None  # what the server actually allocated
     slots: int | None = None
+    router: bool = False
     arch: dict = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
 
@@ -67,9 +68,8 @@ def detect(http: httpx.Client, root: str, openai_base: str, model: str | None) -
     ):
         info.kind = "llama-server"
         info.version = str(props.get("build_info") or "") or None
-        gen = props.get("default_generation_settings") or {}
-        info.loaded_ctx = gen.get("n_ctx") or props.get("n_ctx")
-        info.slots = props.get("total_slots")
+        info.router = props.get("role") == "router"
+        _llama_props(info, props)
     else:
         lm = _get_json(http, f"{root}/api/v0/models")
         if (
@@ -104,6 +104,24 @@ def detect(http: httpx.Client, root: str, openai_base: str, model: str | None) -
         )
     info.model = info.model or model
     return info
+
+
+def _llama_props(info: BackendInfo, props: dict) -> None:
+    gen = props.get("default_generation_settings") or {}
+    info.loaded_ctx = gen.get("n_ctx") or props.get("n_ctx") or info.loaded_ctx
+    info.slots = props.get("total_slots") or info.slots
+
+
+def refresh_llama(http: httpx.Client, root: str, info: BackendInfo) -> None:
+    """In router mode /props describes the router. The model's own props need ?model=."""
+    if not info.router or not info.model:
+        return
+    try:
+        r = http.get(f"{root}/props", params={"model": info.model}, timeout=5)
+        if r.status_code == 200:
+            _llama_props(info, r.json())
+    except (httpx.HTTPError, ValueError):
+        pass
 
 
 def refresh_ollama(http: httpx.Client, root: str, info: BackendInfo) -> None:

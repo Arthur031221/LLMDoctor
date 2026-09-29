@@ -12,7 +12,7 @@ import httpx
 
 from llm_doctor.endpoint import probes
 from llm_doctor.endpoint.advice import fixes
-from llm_doctor.endpoint.backend import BackendInfo, detect, refresh_ollama
+from llm_doctor.endpoint.backend import BackendInfo, detect, refresh_llama, refresh_ollama
 from llm_doctor.endpoint.client import ChatClient, split_base
 from llm_doctor.endpoint.probes import (
     DEEP_LEVELS,
@@ -135,9 +135,13 @@ def run_endpoint(
         if bad:
             st.add(bad)
             report.checks = st.checks
+            report.elapsed = time.monotonic() - t_start
             return report
+        # The model is loaded now, so the server can say what window it allocated.
         if info.kind == "ollama":
-            refresh_ollama(client.http, root, info)  # the model is loaded now
+            refresh_ollama(client.http, root, info)
+        elif info.kind == "llama-server":
+            refresh_llama(client.http, root, info)
         if "context" in only:
             st.add(probes.probe_context(st))
         steps = [

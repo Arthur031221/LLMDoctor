@@ -284,6 +284,17 @@ TEXT_TOOL_CALL = re.compile(
 )
 
 
+def _slow(cid: str, name: str, r: ChatResult, t0: float) -> Check:
+    """A request that ran out of time says nothing about the capability being probed."""
+    return Check(
+        cid,
+        name,
+        WARN,
+        f"did not finish in time ({r.error}), raise --budget",
+        seconds=time.monotonic() - t0,
+    )
+
+
 def _clip(s: str, n: int = 80) -> str:
     s = " ".join(s.split())
     return s if len(s) <= n else s[: n - 3] + "..."
@@ -295,6 +306,14 @@ def calibrate(st: ProbeState) -> Check | None:
     base = st.client.chat(
         [{"role": "user", "content": "Reply with OK."}], max_tokens=64, timeout=st.timeout(60)
     )
+    if base.timed_out:
+        return Check(
+            "connect",
+            "connect",
+            FAIL,
+            f"first request {base.error}, the model may still be loading. Run again or raise --budget",
+            seconds=time.monotonic() - t0,
+        )
     if not base.ok:
         return Check(
             "connect",
@@ -327,6 +346,7 @@ def probe_context(st: ProbeState) -> Check:
     t0 = time.monotonic()
     passed = 0
     rows = []
+    recall_misses: list[int] = []
     status, detail = PASS, ""
     answer_tokens = 1024 if st.thinks_anyway else 48
     for level in st.levels:
@@ -358,7 +378,7 @@ def probe_context(st: ProbeState) -> Check:
         rows.append(row)
         if not r.ok:
             msg = r.error or "request failed"
-            if r.status is None or "timed out" in msg or "exceeded" in msg:
+            if r.status is None or r.timed_out:
                 # Slow is not the same as truncated. Report what was verified and stop.
                 row["result"] = "timeout"
                 status = WARN
@@ -372,9 +392,13 @@ def probe_context(st: ProbeState) -> Check:
         out = r.text()
         start_ok = a.split("-")[1] in out
         end_ok = b.split("-")[1] in out
-        truncated = bool(st.usage_reported and r.prompt_tokens and r.prompt_tokens < expected * 0.8)
+        counted = bool(st.usage_reported and r.prompt_tokens)
+        truncated = bool(counted and r.prompt_tokens < expected * 0.8)
         row.update(start_found=start_ok, end_found=end_ok, truncated=truncated)
-        if truncated or (end_ok and not start_ok) or (start_ok and not end_ok):
+        # The server's own token count is the primary signal. Missing codes only count as
+        # truncation when the server does not report usage.
+        lost = truncated or (not counted and start_ok != end_ok)
+        if lost:
             st.truncated = True
             where = (
                 "front"
@@ -388,14 +412,13 @@ def probe_context(st: ProbeState) -> Check:
             detail = f"{where} of a {expected:,}-token prompt was dropped{kept}"
             row["result"] = f"{where} truncation"
             break
-        if not start_ok and not end_ok:
-            row["result"] = "model repeated neither code"
-            status, detail = (
-                WARN,
-                f"no truncation seen, but the model did not repeat the codes at {level:,} tokens",
-            )
-            continue
-        row["result"] = "ok"
+        if not (start_ok and end_ok):
+            missed = "START" if end_ok else "END" if start_ok else "both"
+            row["result"] = f"ok, model missed {missed} code"
+            recall_misses.append(level)
+            if not counted:
+                continue
+        row.setdefault("result", "ok")
         passed = level
     adv = st.backend.advertised_ctx
     loaded = st.backend.loaded_ctx
@@ -421,7 +444,13 @@ def probe_context(st: ProbeState) -> Check:
     if loaded and loaded != adv:
         head.append(f"(server loaded {loaded:,})")
     summary = " ".join(head)
-    if status == PASS:
+    if status == PASS and recall_misses:
+        status = WARN
+        detail = (
+            f"the server kept every token up to {passed:,}, but the model failed to repeat a marker "
+            f"at {', '.join(f'{x:,}' for x in recall_misses)} tokens (weak recall, not truncation)"
+        )
+    elif status == PASS:
         top = st.levels[-1]
         if passed < top:
             status, detail = WARN, f"stopped at {passed:,} tokens, time budget used"
@@ -452,6 +481,8 @@ def probe_context(st: ProbeState) -> Check:
 
 def _judge_call(r: ChatResult, expect_name: str, expect_args: dict) -> tuple[str, str]:
     if not r.ok:
+        if r.timed_out:
+            return WARN, f"did not finish in time ({r.error})"
         return FAIL, r.error or "request failed"
     if not r.tool_calls:
         if TEXT_TOOL_CALL.search(r.content):
@@ -613,6 +644,8 @@ def probe_json(st: ProbeState) -> Check:
         response_format=rf,
         timeout=st.timeout(40),
     )
+    if r.timed_out:
+        return _slow("json-schema", "json schema", r, t0)
     if not r.ok:
         return Check(
             "json-schema",
@@ -649,44 +682,37 @@ def probe_json(st: ProbeState) -> Check:
 
 
 def probe_think(st: ProbeState) -> Check:
+    """Streamed, so even a cut-off answer shows where the reasoning went."""
     t0 = time.monotonic()
     r = st.client.chat(
         [{"role": "user", "content": "What is 17 + 25? Reply with just the number."}],
-        max_tokens=1200,
+        max_tokens=600,
         thinking=None,
-        timeout=st.timeout(45),
+        stream=True,
+        timeout=st.timeout(40),
     )
-    if not r.ok:
-        return Check(
-            "think-tags",
-            "think tags",
-            FAIL,
-            r.error or "request failed",
-            seconds=time.monotonic() - t0,
-        )
+
+    def done(status: str, detail: str) -> Check:
+        data = {"reasoning_field": r.reasoning_field, "finish_reason": r.finish_reason}
+        return Check("think-tags", "think tags", status, detail, data, time.monotonic() - t0)
+
+    if not r.ok and not r.timed_out:
+        return done(FAIL, r.error or "request failed")
     if "<think>" in r.content or "</think>" in r.content:
-        return Check(
-            "think-tags",
-            "think tags",
-            FAIL,
-            "reasoning leaks into content as <think> tags",
-            seconds=time.monotonic() - t0,
+        return done(FAIL, "reasoning leaks into content as <think> tags")
+    if r.reasoning:
+        note = "" if r.content.strip() else ", the answer did not arrive within the token limit"
+        return done(PASS, f"reasoning returned separately in `{r.reasoning_field}`{note}")
+    if not r.content.strip():
+        return (
+            _slow("think-tags", "think tags", r, t0) if r.timed_out else done(WARN, "empty answer")
         )
-    if r.reasoning and not r.content.strip():
-        status = WARN
-        detail = f"reasoning used all {r.completion_tokens or '?'} tokens, no answer"
-    elif r.reasoning:
-        status, detail = PASS, f"reasoning returned separately in `{r.reasoning_field}`"
-    else:
-        status, detail = PASS, "no reasoning text in content"
-    return Check(
-        "think-tags",
-        "think tags",
-        status,
-        detail,
-        {"reasoning_field": r.reasoning_field},
-        time.monotonic() - t0,
-    )
+    cut = r.timed_out or r.finish_reason == "length"
+    if cut and len(r.content) > 200:
+        return done(
+            WARN, "long untagged content was cut off, it may be reasoning without a <think> tag"
+        )
+    return done(PASS, "no reasoning text in content")
 
 
 def probe_max_tokens(st: ProbeState) -> Check:
@@ -821,6 +847,9 @@ def probe_speed(st: ProbeState) -> list[Check]:
             stream=True,
             timeout=st.timeout(60),
         )
+        if r.timed_out and r.ttft is None:
+            out.append(_slow(cid, name, r, t0))
+            continue
         if not r.ok or r.ttft is None:
             out.append(
                 Check(

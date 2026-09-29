@@ -36,6 +36,10 @@ class ChatResult:
     tool_call_chunks: int = 0
     content_chunks: int = 0
 
+    @property
+    def timed_out(self) -> bool:
+        return bool(self.error) and ("timed out" in self.error or "exceeded" in self.error)
+
     def text(self) -> str:
         return f"{self.reasoning}\n{self.content}"
 
