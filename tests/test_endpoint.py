@@ -37,6 +37,7 @@ def test_ollama_default_window_is_caught():
     ):
         assert s[cid] == "PASS", (cid, report.check(cid).detail)
     assert s["speed-8k"] == "SKIP"
+    assert "does not fit" in report.check("speed-8k").detail
     assert any("OLLAMA_CONTEXT_LENGTH=32768" in f for f in report.fixes)
     assert any("/api/chat accepts options.num_ctx" in f for f in report.fixes)
     json.dumps(report.to_dict())
@@ -98,3 +99,12 @@ def test_helpers():
     ]
     assert validate({"pattern": "a", "output_mode": "all"}, TOOL_SCHEMAS["Grep"])
     assert validate({"command": 1}, TOOL_SCHEMAS["Bash"]) == ["$.command should be string, got int"]
+
+
+def test_weak_recall_is_not_truncation():
+    report = run(FakeServer(ctx=65536, weak_recall=True), only={"context"})
+    ctx = report.check("context")
+    assert ctx.status == "WARN"
+    assert "weak recall, not truncation" in ctx.detail
+    assert ctx.data["effective"] == 16384
+    assert report.fixes == []

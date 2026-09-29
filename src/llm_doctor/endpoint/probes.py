@@ -830,7 +830,12 @@ def probe_speed(st: ProbeState) -> list[Check]:
         name = f"speed {size // 1024}k"
         if st.effective_ctx and st.effective_ctx < size + 512:
             out.append(
-                Check(cid, name, SKIP, f"effective context {st.effective_ctx:,} is below {size:,}")
+                Check(
+                    cid,
+                    name,
+                    SKIP,
+                    f"a {size:,}-token prompt does not fit the {st.effective_ctx:,}-token window",
+                )
             )
             continue
         if st.remaining() < 8:

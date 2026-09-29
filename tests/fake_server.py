@@ -26,6 +26,7 @@ class FakeServer:
         reject_overflow: bool = False,
         parallel: bool = True,
         schema_ok: bool = True,
+        weak_recall: bool = False,
     ) -> None:
         self.ctx = ctx
         self.kind = kind
@@ -36,6 +37,7 @@ class FakeServer:
         self.reject_overflow = reject_overflow
         self.parallel = parallel
         self.schema_ok = schema_ok
+        self.weak_recall = weak_recall
         self.last_system: str | None = None
         self.requests = 0
 
@@ -113,6 +115,8 @@ class FakeServer:
         max_tokens = body.get("max_tokens", 100)
         if "START CODE" in last:
             found = {w: d for w, d in CODE_RE.findall(visible)}
+            if self.weak_recall:
+                found.pop("ORCHID", None)
             content = " ".join(f"{w}-{d}" for w, d in found.items()) or "I do not know."
         elif msgs[-1]["role"] == "tool" or any(m["role"] == "tool" for m in msgs[-2:]):
             content = "It prints hello."
