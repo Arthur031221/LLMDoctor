@@ -61,6 +61,7 @@ class Export:
     ctx_from_modelfile: bool = False
     base_repo: str | None = None
     notes: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
     skipped: str | None = None
 
     def to_dict(self) -> dict:
@@ -75,6 +76,7 @@ class Export:
             "system_prompt": self.system,
             "context": self.ctx,
             "notes": self.notes,
+            "warnings": self.warnings,
             "skipped": self.skipped,
         }
 
@@ -146,10 +148,21 @@ def plan_exports(
         ex.system = m.meta.get("system")
         if ex.system:
             ex.notes.append("system prompt kept as a comment: llama-server has no flag for it")
-        if not m.chat_template:
-            ex.notes.append(
-                "GGUF has no Jinja chat template, pass --chat-template-file (Ollama used its own Go template)"
+        if m.meta.get("embedded_vision"):
+            ex.warnings.append(
+                "vision weights are inside this GGUF (Ollama engine format). llama.cpp expects a "
+                "separate mmproj file, so this file may not load. A llama.cpp build from Hugging Face is safer"
             )
+        if not m.chat_template:
+            how = (
+                f"Ollama formats prompts with its built-in {m.meta['renderer']!r} renderer"
+                if m.meta.get("renderer")
+                else "Ollama used its own Go template"
+            )
+            ex.warnings.append(
+                f"GGUF has no Jinja chat template ({how}), pass --chat-template-file"
+            )
+
         ex.base_repo = m.meta.get("base_repo") or (
             m.source_repo if m.meta.get("host") == "hf.co" else None
         )
@@ -197,6 +210,8 @@ def render_presets(exports: list[Export]) -> str:
     for ex in exports:
         if ex.skipped:
             continue
+        for w in ex.warnings:
+            lines.append(f"; warning: {w}")
         lines.append(f"[{ex.name}]")
         lines.append(f"model = {ex.out_model}")
         if ex.out_projector:
@@ -237,6 +252,8 @@ def render_llama_swap(exports: list[Export], binary: str) -> str:
     for ex in exports:
         if ex.skipped:
             continue
+        for w in ex.warnings:
+            lines.append(f"  # warning: {w}")
         lines.append(f"  {json.dumps(ex.name)}:")
         lines.append("    cmd: |")
         args = _cmd_args(ex, binary)

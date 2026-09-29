@@ -85,3 +85,24 @@ def test_lmstudio_and_mlx(env, tmp_path):
     write_exports(plan_exports(ms, "mlx", mlx_out, 32768), "mlx", mlx_out)
     script = (mlx_out / "convert-to-mlx.sh").read_text()
     assert "source repo unknown" in script
+
+
+def test_ollama_engine_model_with_embedded_vision(env, tmp_path):
+    g = write_gguf(tmp_path / "o.gguf", arch="glmocr", template=None, embedded_vision=True)
+    add_ollama_model(
+        env["ollama"],
+        "glm-ocr",
+        g.read_bytes(),
+        tag="q8_0",
+        with_template=False,
+        config_extra={"renderer": "glm-ocr", "parser": "glm-ocr", "requires": "0.15.5"},
+    )
+    m = ollama.scan(env["ollama"]).models[0]
+    assert m.meta["embedded_vision"] is True and m.meta["renderer"] == "glm-ocr"
+    out = tmp_path / "out"
+    exports = plan_exports([m], "llama-server", out, 32768)
+    assert len(exports[0].warnings) == 2
+    write_exports(exports, "llama-server", out)
+    ini = (out / "presets.ini").read_text()
+    assert "; warning: vision weights are inside this GGUF" in ini
+    assert "'glm-ocr' renderer" in ini

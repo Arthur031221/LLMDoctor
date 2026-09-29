@@ -29,6 +29,7 @@ def write_gguf(
     tensor_floats: int = 1024,
     mmproj: bool = False,
     base_repo: str | None = None,
+    embedded_vision: bool = False,
     seed: int = 0,
 ) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -46,6 +47,8 @@ def write_gguf(
         w.add_token_list([f"tok{i}" for i in range(vocab)])
         if template:
             w.add_chat_template(template)
+        if embedded_vision:
+            w.add_uint32(f"{arch}.vision.block_count", 24)
         if base_repo:
             w.add_base_model_count(1)
             w.add_base_model_repo_url(0, f"https://huggingface.co/{base_repo}")
@@ -82,6 +85,8 @@ def add_ollama_model(
     template: str = "{{ .Prompt }}",
     system: str | None = None,
     projector: bytes | None = None,
+    config_extra: dict | None = None,
+    with_template: bool = True,
 ) -> dict:
     layers = []
     d = add_ollama_blob(root, gguf_bytes)
@@ -101,14 +106,15 @@ def add_ollama_model(
                 "size": len(projector),
             }
         )
-    td = add_ollama_blob(root, template.encode())
-    layers.append(
-        {
-            "mediaType": "application/vnd.ollama.image.template",
-            "digest": f"sha256:{td}",
-            "size": len(template),
-        }
-    )
+    if with_template:
+        td = add_ollama_blob(root, template.encode())
+        layers.append(
+            {
+                "mediaType": "application/vnd.ollama.image.template",
+                "digest": f"sha256:{td}",
+                "size": len(template),
+            }
+        )
     if params is not None:
         raw = json.dumps(params).encode()
         layers.append(
@@ -126,7 +132,9 @@ def add_ollama_model(
                 "size": len(system),
             }
         )
-    cfg = json.dumps({"model_format": "gguf", "model_family": "qwen3"}).encode()
+    cfg = json.dumps(
+        {"model_format": "gguf", "model_family": "qwen3", **(config_extra or {})}
+    ).encode()
     manifest = {
         "schemaVersion": 2,
         "mediaType": "application/vnd.docker.distribution.manifest.v2+json",

@@ -217,8 +217,14 @@ def _model_from_manifest(root: Path, m: OllamaManifest) -> Model:
     if m.config_digest:
         cfg_text = _read_small(blob_path(root, m.config_digest))
         if cfg_text:
-            with contextlib.suppress(ValueError):
-                fmt = json.loads(cfg_text).get("model_format")
+            with contextlib.suppress(ValueError, AttributeError):
+                cfg = json.loads(cfg_text)
+                fmt = cfg.get("model_format")
+                # Newer Ollama models format prompts with a built-in Go renderer instead of
+                # a template layer, and may need a minimum Ollama version.
+                for key in ("renderer", "parser", "requires"):
+                    if cfg.get(key):
+                        model.meta[key] = cfg[key]
     for ly in m.layers:
         mt = str(ly.get("mediaType") or "")
         digest = str(ly.get("digest") or "").split(":", 1)[-1]
@@ -276,6 +282,12 @@ def _model_from_manifest(root: Path, m: OllamaManifest) -> Model:
             base = h.get("general.base_model.0.repo_url")
             if isinstance(base, str) and "huggingface.co/" in base:
                 model.meta["base_repo"] = base.split("huggingface.co/", 1)[1].strip("/")
+            # Ollama's own engine can keep the vision tower inside the main GGUF.
+            # llama.cpp expects it in a separate mmproj file.
+            vision = f"{h.arch}.vision."
+            has_projector = any(f.role == "projector" for f in model.files)
+            if not has_projector and any(k.startswith(vision) for k in h.metadata):
+                model.meta["embedded_vision"] = True
         except GGUFError as e:
             model.problems.append(f"unreadable GGUF header: {e}")
     model.format = fmt or ("safetensors" if model.files else "unknown")

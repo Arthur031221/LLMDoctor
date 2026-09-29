@@ -181,7 +181,10 @@ def render_unbundle(
         f = tilde(ex.out_model)
         if ex.out_projector:
             f += f"\n{tilde(ex.out_projector)}"
-        t.add_row(ex.name, f, f"{ex.ctx:,}" if ex.ctx else "", "\n".join(ex.notes))
+        notes = Text("\n".join(ex.notes))
+        for w in ex.warnings:
+            notes.append(("\n" if notes.plain else "") + "warning: " + w, style="yellow")
+        t.add_row(ex.name, f, f"{ex.ctx:,}" if ex.ctx else "", notes)
     console.print(t)
     console.print()
     if dry_run:
