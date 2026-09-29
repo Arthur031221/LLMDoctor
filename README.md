@@ -19,11 +19,15 @@ On my MacBook Air, Ollama 0.34.4 served qwen3:1.7b with a 4,096-token window, a 
 
 ## Install
 
+The PyPI release is coming. For now, install straight from GitHub:
+
 ```sh
-uvx llm-doctor
+uv tool install git+https://github.com/Arthur031221/llm-doctor
 ```
 
-Or `pipx install llm-doctor`, or `pip install llm-doctor`. Python 3.10 or newer. Before the first PyPI release, use `uvx --from git+https://github.com/Arthur031221/llm-doctor llm-doctor`.
+Or run it once without installing: `uvx --from git+https://github.com/Arthur031221/llm-doctor llm-doctor`.
+
+Once the PyPI release is up, `uvx llm-doctor` (or `pipx install llm-doctor`, or `pip install llm-doctor`) will work directly. Python 3.10 or newer.
 
 ## Quick start
 
