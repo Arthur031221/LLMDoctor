@@ -739,7 +739,7 @@ def probe_max_tokens(st: ProbeState) -> Check:
                 "max-tokens",
                 "max_tokens",
                 FAIL,
-                f"about {n_est} numbers generated with max_tokens={limit}",
+                f"about {n_est} numbers came back with max_tokens={limit}",
                 seconds=time.monotonic() - t0,
             )
         return Check(
@@ -754,7 +754,7 @@ def probe_max_tokens(st: ProbeState) -> Check:
             "max-tokens",
             "max_tokens",
             FAIL,
-            f"{n} tokens generated with max_tokens={limit}",
+            f"{n} tokens came back with max_tokens={limit}",
             {"completion_tokens": n},
             time.monotonic() - t0,
         )

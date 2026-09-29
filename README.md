@@ -57,6 +57,8 @@ WARN  template-stale    unsloth/Qwen3-0.6B-GGUF/Qwen3-0.6B-Q4_K_M
       fix: hf download unsloth/Qwen3-0.6B-GGUF Qwen3-0.6B-Q4_K_M.gguf
 ```
 
+`llm-doctor fix --yes` then replaced the LM Studio copy with a symlink to the Ollama blob and reclaimed 396.7 MB. The next scan reported no duplicates.
+
 The stale template is a real one. The 2025-05-09 revision of that GGUF reads `message.content` without checking for null, and assistant turns that carry only tool calls often have null content. A later upload fixed it.
 
 The endpoint probe against the same Ollama, default settings:[^1]
