@@ -19,11 +19,11 @@ Show
 Type "llm-doctor scan"
 Sleep 400ms
 Enter
-Wait@90s
-Sleep 4s
+Wait+Screen@120s /reclaimable|No problems found/
+Sleep 5s
 
-Type "clear && llm-doctor endpoint http://localhost:11434 --model qwen3:1.7b --only context,tools,think"
+Type "clear && llm-doctor endpoint http://localhost:11434 --model qwen3:1.7b --only context,tools"
 Sleep 400ms
 Enter
-Wait@120s
-Sleep 6s
+Wait+Screen@180s /Fixes for ollama|streaming tools/
+Sleep 10s
