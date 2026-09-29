@@ -202,3 +202,45 @@ def render_unbundle(
         )
     elif target == "mlx":
         console.print(f"Run: sh {tilde(out / 'convert-to-mlx.sh')}")
+
+
+STATUS_STYLE = {
+    "PASS": "green",
+    "WARN": "yellow",
+    "FAIL": "bold red",
+    "SKIP": "dim",
+    "INFO": "cyan",
+}
+
+
+def render_check(console: Console, c) -> None:
+    line = Text("  ")
+    line.append(f"{c.status:<5}", style=STATUS_STYLE.get(c.status, ""))
+    line.append(f" {c.name}", style="bold")
+    line.append(f"  {c.detail}", style="dim")
+    console.print(line, soft_wrap=True)
+
+
+def render_endpoint(console: Console, report) -> None:
+    b = report.backend
+    who = b.kind + (f" {b.version}" if b.version else "")
+    console.print(
+        Text.assemble(
+            ("llm-doctor endpoint ", "bold"),
+            f"{report.url}  ({who}, model {b.model or '?'}, {report.api} API, {report.elapsed:.0f} s)",
+        )
+    )
+    head = report.headline()
+    if head:
+        c = report.check("context")
+        console.print(Text(head, style=STATUS_STYLE.get(c.status if c else "", "bold")))
+    console.print()
+    t = table("check", "result", "detail")
+    for c in report.checks:
+        t.add_row(c.name, Text(c.status, style=STATUS_STYLE.get(c.status, "")), c.detail)
+    console.print(t)
+    if report.fixes:
+        console.print()
+        console.print(Text(f"Fixes for {b.kind}", style="bold"))
+        for i, f in enumerate(report.fixes, 1):
+            console.print(Text(f"{i}. {f}"), soft_wrap=True)

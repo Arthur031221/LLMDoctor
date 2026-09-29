@@ -35,6 +35,14 @@ JsonOpt = Annotated[bool, typer.Option("--json", help="Print machine-readable JS
 CtxOpt = Annotated[
     int, typer.Option("--ctx", help="Context length used for the memory fit estimate.", min=512)
 ]
+MinSizeOpt = Annotated[
+    float,
+    typer.Option(
+        "--min-size",
+        help="Ignore files smaller than this many MB when looking for duplicates.",
+        min=0,
+    ),
+]
 OfflineOpt = Annotated[
     bool, typer.Option("--offline", help="Skip registry and Hugging Face Hub lookups.")
 ]
@@ -106,11 +114,18 @@ def scan(
     no_hash: Annotated[
         bool, typer.Option("--no-hash", help="Skip duplicate detection (no file hashing).")
     ] = False,
+    min_size: MinSizeOpt = 16,
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Show info notes too.")] = False,
     as_json: JsonOpt = False,
 ) -> None:
     """Scan Ollama, LM Studio, the Hugging Face cache and MLX folders for problems."""
-    opts = ScanOptions(paths=paths or [], ctx=ctx_len, online=not offline, hash_files=not no_hash)
+    opts = ScanOptions(
+        paths=paths or [],
+        ctx=ctx_len,
+        online=not offline,
+        hash_files=not no_hash,
+        min_size=int(min_size * 1_000_000),
+    )
     interactive = not as_json and err.is_terminal
     hooks, progress = _hash_progress(interactive)
     status = None
@@ -154,6 +169,7 @@ def fix(
         ),
     ] = 60,
     paths: PathsOpt = None,
+    min_size: MinSizeOpt = 16,
     as_json: JsonOpt = False,
 ) -> None:
     """Dedupe weights with links and delete orphan blobs and stale partial downloads. Dry run by default."""
@@ -167,7 +183,12 @@ def fix(
             f"[red]Unknown --only value: {', '.join(sorted(bad))}. Use {', '.join(KINDS)}.[/red]"
         )
         raise typer.Exit(2)
-    opts = ScanOptions(paths=paths or [], online=False, hash_files="dedupe" in kinds)
+    opts = ScanOptions(
+        paths=paths or [],
+        online=False,
+        hash_files="dedupe" in kinds,
+        min_size=int(min_size * 1_000_000),
+    )
     hooks, progress = _hash_progress(not as_json and err.is_terminal)
     try:
         report = run_scan(opts, hash_progress=hooks)
@@ -249,6 +270,82 @@ def unbundle(
         )
         return
     render_unbundle(out, exports, to, target_dir, written, dry_run)
+
+
+@app.command()
+def endpoint(
+    url: Annotated[
+        str,
+        typer.Argument(help="Server URL, e.g. http://localhost:11434 or http://localhost:8080/v1"),
+    ],
+    model: Annotated[
+        str | None,
+        typer.Option(
+            "--model", "-m", help="Model to test. Default: the loaded or first listed model."
+        ),
+    ] = None,
+    api: Annotated[
+        str, typer.Option("--api", help="openai (/v1/chat/completions) or ollama (/api/chat).")
+    ] = "openai",
+    deep: Annotated[bool, typer.Option("--deep", help="Also test a 32k-token context.")] = False,
+    budget: Annotated[
+        float | None,
+        typer.Option(
+            "--budget",
+            help="Time budget in seconds for all probes. Default 90, or 300 with --deep.",
+            min=10,
+        ),
+    ] = None,
+    only: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--only",
+            help="Run only these probes: context, tools, json, think, max-tokens, prefix-cache, speed, ram.",
+        ),
+    ] = None,
+    api_key: Annotated[
+        str | None,
+        typer.Option("--api-key", help="Bearer token. Also read from LLM_DOCTOR_API_KEY."),
+    ] = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """Probe an OpenAI-compatible or Ollama endpoint for coding-agent readiness."""
+    from llm_doctor.endpoint import run_endpoint
+    from llm_doctor.endpoint.probes import PROBES
+    from llm_doctor.render import render_check, render_endpoint
+
+    if api not in ("openai", "ollama"):
+        err.print("[red]--api must be openai or ollama[/red]")
+        raise typer.Exit(2)
+    if not url.startswith(("http://", "https://")):
+        url = "http://" + url
+    selected = set(only or PROBES)
+    unknown = selected - set(PROBES)
+    if unknown:
+        err.print(
+            f"[red]Unknown probe: {', '.join(sorted(unknown))}. Choose from {', '.join(PROBES)}.[/red]"
+        )
+        raise typer.Exit(2)
+    budget = budget or (300.0 if deep else 90.0)
+    live = None if as_json else (lambda c: render_check(err, c))
+    if not as_json:
+        err.print(f"[dim]Probing {url} (budget {budget:.0f} s)...[/dim]")
+    report = run_endpoint(
+        url,
+        model=model,
+        api=api,
+        deep=deep,
+        budget=budget,
+        only=selected,
+        api_key=api_key,
+        on_check=live,
+    )
+    if as_json:
+        emit_json(report.to_dict())
+    else:
+        render_endpoint(out, report)
+    if any(c.status == "FAIL" for c in report.checks):
+        raise typer.Exit(1)
 
 
 def main() -> None:
