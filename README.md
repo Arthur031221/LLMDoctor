@@ -2,13 +2,14 @@
 
 `brew doctor` for your local AI setup. Finds duplicate weights across Ollama, LM Studio, Hugging Face and MLX, stale chat templates, outdated models and orphan blobs, moves your Ollama library to llama.cpp without re-downloading, and tells you why your coding agent misbehaves on your local endpoint.
 
+![llm-doctor scan and fix on a throwaway fixture](assets/demo.gif)
+
 On my MacBook Air, Ollama 0.34.4 served qwen3:1.7b with a 4,096-token window, a tenth of the 40,960 tokens the model supports. A 7,000-token prompt came back HTTP 200 with only its last 2,050 tokens seen by the model. No error, no warning.[^1]
 
 [![CI](https://github.com/Arthur031221/llm-doctor/actions/workflows/ci.yml/badge.svg)](https://github.com/Arthur031221/llm-doctor/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/llm-doctor.svg)](https://pypi.org/project/llm-doctor/)
 
-![llm-doctor scan, then an endpoint probe against Ollama](demo/demo.gif)
 
 ## Why
 
