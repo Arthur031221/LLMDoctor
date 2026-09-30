@@ -207,6 +207,12 @@ Exits with status 1 when any check fails, so it works in scripts. Backends are d
 
 **Platforms.** Built and tested on macOS with Apple Silicon. The store scanners and the probe also run on Linux (CI runs there). Windows is untested.
 
+## Related projects
+
+- [gpuwho](https://github.com/Arthur031221/gpuwho): Shows which local process is using the GPU right now, a live view next to llm-doctor's static inventory of your model store.
+- [gpuwait](https://github.com/Arthur031221/gpuwait): Measures how much of a serving window your local model spends idle, a companion number to llm-doctor's setup diagnosis.
+- [ollama-verify](https://github.com/Arthur031221/ollama-verify): Checks the integrity of the Ollama blobs llm-doctor also inventories, narrower in scope and read-only.
+
 ## Contributing and license
 
 Bug reports with `--json` output and store layouts that llm-doctor gets wrong are the most useful contributions. See [CONTRIBUTING.md](CONTRIBUTING.md). MIT licensed, see [LICENSE](LICENSE).
