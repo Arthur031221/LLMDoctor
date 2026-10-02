@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 
 import pytest
 from helpers import add_hf_file, add_ollama_blob, add_ollama_model, age, write_gguf
@@ -76,6 +77,27 @@ def test_fix_dry_run_then_apply(world):
     after = scan()
     assert after.duplicates == []
     assert after.stores[1].disk_bytes() == 0  # the LM Studio copy is now a link
+
+
+def test_fix_relative_keeper_path_creates_working_symlink(env, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    root = Path("ollama/models")
+    data = write_gguf(tmp_path / "relative.gguf", tensor_floats=64_000).read_bytes()
+    add_ollama_model(root, "relative", data)
+    copy = Path("copies/relative.gguf")
+    copy.parent.mkdir()
+    copy.write_bytes(data)
+    monkeypatch.setenv("OLLAMA_MODELS", str(root))
+    monkeypatch.setenv("LLM_DOCTOR_PATHS", "copies")
+
+    report = run_scan(ScanOptions(online=False, min_size=1024, ram=24 * 1024**3))
+    assert len(report.duplicates) == 1
+    plan = plan_fix(report, min_age=0, only={"dedupe"})
+    results = apply_fix(plan)
+
+    assert all(result["ok"] for result in results)
+    assert copy.is_symlink()
+    assert copy.read_bytes() == data
 
 
 def test_fix_hardlink_and_only(world):

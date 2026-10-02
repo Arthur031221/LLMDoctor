@@ -154,7 +154,7 @@ def _replace_with_link(path: Path, target: Path, mode: str) -> str:
         except OSError:
             used = "symlink"  # different filesystem
     if used == "symlink":
-        os.symlink(target, tmp)
+        os.symlink(target.resolve(), tmp)
     os.replace(tmp, path)
     return used
 

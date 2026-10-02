@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from helpers import add_ollama_model, write_gguf
 
 from llm_doctor.stores import ollama
@@ -85,6 +87,22 @@ def test_lmstudio_and_mlx(env, tmp_path):
     write_exports(plan_exports(ms, "mlx", mlx_out, 32768), "mlx", mlx_out)
     script = (mlx_out / "convert-to-mlx.sh").read_text()
     assert "source repo unknown" in script
+
+
+def test_unbundle_relative_source_path_creates_working_symlink(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    root = Path("ollama/models")
+    data = write_gguf(tmp_path / "relative.gguf").read_bytes()
+    add_ollama_model(root, "relative", data)
+    out = Path("export")
+
+    exports = plan_exports(ollama.scan(root).models, "llama-server", out, 32768)
+    written = write_exports(exports, "llama-server", out)
+    link = out / "relative-latest.gguf"
+
+    assert not written["errors"]
+    assert link.is_symlink()
+    assert link.read_bytes() == data
 
 
 def test_ollama_engine_model_with_embedded_vision(env, tmp_path):

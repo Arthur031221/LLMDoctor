@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Fix links created from relative model store paths so they resolve correctly.
+
 ## 0.1.1 (2026-09-30)
 
 - Release workflow: removed the PyPI publish step, which needs a trusted publisher that is not

@@ -187,7 +187,7 @@ def _link(src: Path, dst: Path, mode: str) -> str:
             return "hardlink"
         except OSError:
             pass
-    os.symlink(src, dst)
+    os.symlink(src.resolve(), dst)
     return "symlink"
 
 
