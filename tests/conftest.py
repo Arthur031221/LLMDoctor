@@ -14,6 +14,7 @@ def env(tmp_path, monkeypatch):
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
     monkeypatch.setenv("LLM_DOCTOR_HOME", str(home / ".llm-doctor"))
     monkeypatch.setenv("OLLAMA_MODELS", str(home / ".ollama" / "models"))
     monkeypatch.setenv("HF_HUB_CACHE", str(home / ".cache" / "huggingface" / "hub"))
