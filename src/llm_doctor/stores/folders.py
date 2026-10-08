@@ -121,7 +121,7 @@ def _gguf_models(root: Path, d: Path, ggufs: list[str], store: str) -> list[Mode
         names.sort()
         first = d / names[0]
         rel_dir = d.relative_to(root)
-        name = str(rel_dir / key) if str(rel_dir) != "." else key
+        name = (rel_dir / key).as_posix() if str(rel_dir) != "." else key
         model = Model(
             store=store,
             name=name,

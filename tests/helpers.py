@@ -174,13 +174,12 @@ def add_hf_file(
             shared = hub / "blobs" / xh[:2] / xh
             shared.parent.mkdir(parents=True, exist_ok=True)
             shared.write_bytes(data)
-            os.symlink(f"../../blobs/{xh[:2]}/{xh}", blob)
+            os.symlink(os.path.relpath(shared, blob.parent), blob)
         else:
             blob.write_bytes(data)
     snap = repo_dir / "snapshots" / revision / filename
     snap.parent.mkdir(parents=True, exist_ok=True)
-    depth = len(Path(filename).parts)
-    os.symlink("../" * (depth + 1) + f"blobs/{digest}", snap)
+    os.symlink(os.path.relpath(blob, snap.parent), snap)
     if main:
         (repo_dir / "refs").mkdir(exist_ok=True)
         (repo_dir / "refs" / "main").write_text(revision)
@@ -189,4 +188,4 @@ def add_hf_file(
 
 def age(path: Path, seconds: float) -> None:
     t = time.time() - seconds
-    os.utime(path, (t, t), follow_symlinks=False)
+    os.utime(path, (t, t))
