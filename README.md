@@ -1,6 +1,6 @@
 <h1 align="center">
   <img src="assets/logo.svg" width="72" alt=""><br>
-  llm-doctor
+  LLMDoctor
 </h1>
 
 <p align="center">
@@ -8,9 +8,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Arthur031221/llm-doctor/stargazers"><img src="https://img.shields.io/github/stars/Arthur031221/llm-doctor?style=social" alt="GitHub stars"></a>
-  <a href="https://github.com/Arthur031221/llm-doctor/actions/workflows/ci.yml"><img src="https://github.com/Arthur031221/llm-doctor/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/Arthur031221/llm-doctor" alt="License"></a>
+  <a href="https://github.com/Arthur031221/LLMDoctor/stargazers"><img src="https://img.shields.io/github/stars/Arthur031221/LLMDoctor?style=social" alt="GitHub stars"></a>
+  <a href="https://github.com/Arthur031221/LLMDoctor/actions/workflows/ci.yml"><img src="https://github.com/Arthur031221/LLMDoctor/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Arthur031221/LLMDoctor" alt="License"></a>
 </p>
 
 <p align="center">
@@ -21,22 +21,22 @@
 </p>
 
 > [!TIP]
-> Scan your local model stores without installing llm-doctor:
+> Scan your local model stores without installing LLMDoctor:
 > ```sh
-> uvx --from git+https://github.com/Arthur031221/llm-doctor llm-doctor scan --offline
+> uvx --from git+https://github.com/Arthur031221/LLMDoctor LLMDoctor scan --offline
 > ```
 
 <p align="center">
   <img src="assets/demo.gif" alt="The GIF shows a terminal scanning local models, probing an endpoint, and printing Ollama fixes." width="100%">
 </p>
 
-## Why llm-doctor
+## Why LLMDoctor
 
 Each runtime keeps its own copy of large model files. Ollama hides weights behind sha256 blob names, so a matching 20 GB file in LM Studio can be hard to recognize. Moving models out of Ollama usually means downloading them again.
 
 Chat templates can be fixed after a quantized model is released, leaving old local copies with broken tool-call behavior. Ollama can also load a smaller context window than the model supports and silently drop prompt content while returning HTTP 200.
 
-Most tools focus on one store, one runtime, or basic OpenAI compatibility. llm-doctor inventories local stores, checks templates and model versions, estimates memory fit, probes the endpoint behavior coding agents rely on, and prints concrete repair commands.
+Most tools focus on one store, one runtime, or basic OpenAI compatibility. LLMDoctor inventories local stores, checks templates and model versions, estimates memory fit, probes the endpoint behavior coding agents rely on, and prints concrete repair commands.
 
 ## Features
 
@@ -53,13 +53,13 @@ Most tools focus on one store, one runtime, or basic OpenAI compatibility. llm-d
 Requires Python 3.10 or newer. The package is not published on PyPI yet, so install from GitHub:
 
 ```sh
-uv tool install git+https://github.com/Arthur031221/llm-doctor
+uv tool install git+https://github.com/Arthur031221/LLMDoctor
 ```
 
 To run it once without installing:
 
 ```sh
-uvx --from git+https://github.com/Arthur031221/llm-doctor llm-doctor
+uvx --from git+https://github.com/Arthur031221/LLMDoctor llm-doctor
 ```
 
 The TIP command above scans every discovered model store and skips upstream lookups. This excerpt is from its real output; counts and findings depend on the machine:
@@ -220,7 +220,7 @@ After applying fix 2, the same probe verified 16,384 tokens with no truncation a
 
 ## How it works
 
-llm-doctor reads local manifests and model files, hashes only files that need comparison, checks upstream metadata when online, and turns its findings into cleanup plans or endpoint-specific advice.
+LLMDoctor reads local manifests and model files, hashes only files that need comparison, checks upstream metadata when online, and turns its findings into cleanup plans or endpoint-specific advice.
 
 <details>
 <summary><b>Stores and duplicate detection</b></summary>
@@ -234,7 +234,7 @@ llm-doctor reads local manifests and model files, hashes only files that need co
 <details>
 <summary><b>GGUF headers and memory fit</b></summary>
 
-**GGUF headers.** llm-doctor parses GGUF metadata itself and skips tokenizer arrays by length. On the 1.4 GB qwen3:1.7b blob that takes 39 ms, compared with 2.0 s for gguf-py's `GGUFReader`.[^3] The test suite checks the parser against gguf-py on generated files.
+**GGUF headers.** LLMDoctor parses GGUF metadata itself and skips tokenizer arrays by length. On the 1.4 GB qwen3:1.7b blob that takes 39 ms, compared with 2.0 s for gguf-py's `GGUFReader`.[^3] The test suite checks the parser against gguf-py on generated files.
 
 **Memory fit.** Weights plus an f16 KV cache at the target context (`--ctx`, default 32,768, capped at the model's trained context). KV bytes are `layers x kv_heads x (key_dim + value_dim) x 2 x tokens`, with per-layer KV heads, sliding-window layers, and MLA handled when the metadata describes them. The result is compared with physical RAM and the macOS GPU wired limit (`iogpu.wired_limit_mb`, or about two thirds of RAM when unset on machines up to 36 GB).
 
@@ -243,7 +243,7 @@ llm-doctor reads local manifests and model files, hashes only files that need co
 <details>
 <summary><b>Templates and model updates</b></summary>
 
-For Hugging Face GGUFs, the Hub `paths-info` API gives the upstream sha256 of the same file. If it differs, llm-doctor reads the upstream GGUF header with an HTTP range request, without downloading the weights, and compares chat templates after whitespace normalization. It also compares with the base model's `tokenizer_config.json` or `chat_template.jinja` when the GGUF or model card names one. That comparison is a hint only, since quantizers patch templates on purpose. For Ollama, the registry manifest for the same tag is compared layer by layer, so a template-only update is reported as a few KB to pull.
+For Hugging Face GGUFs, the Hub `paths-info` API gives the upstream sha256 of the same file. If it differs, LLMDoctor reads the upstream GGUF header with an HTTP range request, without downloading the weights, and compares chat templates after whitespace normalization. It also compares with the base model's `tokenizer_config.json` or `chat_template.jinja` when the GGUF or model card names one. That comparison is a hint only, since quantizers patch templates on purpose. For Ollama, the registry manifest for the same tag is compared layer by layer, so a template-only update is reported as a few KB to pull.
 
 </details>
 
@@ -270,9 +270,9 @@ A calibration request learns the server's characters per token. The context prob
 
 ### Compared tools
 
-| Tool | What it does | Where llm-doctor differs |
+| Tool | What it does | Where LLMDoctor differs |
 |---|---|---|
-| llm-doctor | Scans Ollama, LM Studio, HF cache and MLX; finds cross-store duplicates, orphans, stale templates and updates; exports Ollama models; probes endpoints and gives fixes | It prints model download or update commands but does not download or update models itself, and it does not run models |
+| LLMDoctor | Scans Ollama, LM Studio, HF cache and MLX; finds cross-store duplicates, orphans, stale templates and updates; exports Ollama models; probes endpoints and gives fixes | It prints model download or update commands but does not download or update models itself, and it does not run models |
 | [sammcj/gollama](https://github.com/sammcj/gollama) | Ollama model manager TUI for listing, sorting, deleting, copying, editing Modelfiles, and estimating vRAM and context | It does not scan other stores; LM Studio linking was removed in v2.0.1; it does not detect duplicates or orphans, check updates or templates, or probe endpoints |
 | [llamastash](https://github.com/llamastash/llamastash) | Runtime manager that finds GGUFs in HF, Ollama, and LM Studio caches, estimates memory with KV, pairs mmproj files, and launches and routes models | Its dedupe collapses symlinks in its own model list rather than reclaiming disk; it has no upstream template or version checks and no endpoint probe |
 | [ollama-to-lmstudio-symlinks](https://github.com/qaribhaider/ollama-to-lmstudio-symlinks) | Links models between Ollama and LM Studio, pairs mmproj files, groups shards, and cleans broken links | It does not cover other stores, parameter translation, llama-server or llama-swap configs, or template and update checks |
@@ -347,13 +347,13 @@ Built and tested on macOS with Apple Silicon. The store scanners and probe also 
 
 ## Related projects
 
-- [gpuwho](https://github.com/Arthur031221/gpuwho): Shows which local process is using the GPU right now, a live view next to llm-doctor's static inventory of the model store.
-- [gpuwait](https://github.com/Arthur031221/gpuwait): Measures how much of a serving window a local model spends idle, a companion number to llm-doctor's setup diagnosis.
-- [ollama-verify](https://github.com/Arthur031221/ollama-verify): Checks the integrity of Ollama blobs llm-doctor also inventories, narrower in scope and read-only.
+- [gpuwho](https://github.com/Arthur031221/gpuwho): Shows which local process is using the GPU right now, a live view next to LLMDoctor's static inventory of the model store.
+- [gpuwait](https://github.com/Arthur031221/gpuwait): Measures how much of a serving window a local model spends idle, a companion number to LLMDoctor's setup diagnosis.
+- [ollama-verify](https://github.com/Arthur031221/ollama-verify): Checks the integrity of Ollama blobs LLMDoctor also inventories, narrower in scope and read-only.
 
 ## Contributing
 
-Bug reports with `--json` output and store layouts that llm-doctor gets wrong are the most useful contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) and [open an issue](https://github.com/Arthur031221/llm-doctor/issues).
+Bug reports with `--json` output and store layouts that LLMDoctor gets wrong are the most useful contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) and [open an issue](https://github.com/Arthur031221/LLMDoctor/issues).
 
 ## License
 
