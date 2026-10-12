@@ -245,6 +245,22 @@ LLMDoctor reads local manifests and model files, hashes only files that need com
 
 For Hugging Face GGUFs, the Hub `paths-info` API gives the upstream sha256 of the same file. If it differs, LLMDoctor reads the upstream GGUF header with an HTTP range request, without downloading the weights, and compares chat templates after whitespace normalization. It also compares with the base model's `tokenizer_config.json` or `chat_template.jinja` when the GGUF or model card names one. That comparison is a hint only, since quantizers patch templates on purpose. For Ollama, the registry manifest for the same tag is compared layer by layer, so a template-only update is reported as a few KB to pull.
 
+**What counts as stale?** Findings describe comparisons with the current upstream or the local store layout. A model's age or family name, including Qwen3, does not by itself trigger an update warning.
+
+| Finding | Criterion | How to interpret it |
+|---|---|---|
+| `template-stale` (warn) | Ollama's registry changes the template layer digest for the same tag. For Hugging Face, the checked upstream template differs after normalization, or the local GGUF lacks a template that the current upstream file has. | A difference to review. It does not prove the local template behaves incorrectly. |
+| `outdated` (warn) | Ollama's manifest digest differs for the same tag. On the Hub, a checked GGUF's available SHA-256 or size differs, or checked folder weight files have different upstream identifiers. | The current upstream differs. A deliberately pinned or customized local version may still be appropriate. |
+| `template-vs-base` (info) | The local template differs from the named base model's normalized template. | Quantizers can patch templates intentionally. Shown with `--verbose`, without an update command. |
+| `newer-revision` (info) | The Hub revision changed without detected changes to the checked folder weights or template. | A repository revision change alone does not warrant a stale-template or weight-update warning. |
+| `old-revision` (info) | A cached file is superseded at the same filename by another snapshot and is unused by the scanner's selected files. | An older cached version you may want to keep. Cleanup is delegated to `hf cache prune`. |
+| `orphan` | An Ollama blob is not referenced by any local manifest. | A leftover candidate, independent of model quality. |
+| `incomplete` | The store contains a partial-download file. | A download leftover that may still be active. |
+
+Template normalization converts CRLF to LF, removes trailing whitespace from each line, and strips surrounding whitespace. It does not render Jinja or check semantic equivalence. Intentional changes can therefore produce a warning. `--json` exposes finding codes, messages, and comparison data where available. `--offline` skips upstream comparisons.
+
+Orphan and incomplete files modified within the last 15 minutes are info findings, with older ones reported as warnings. `fix` previews changes by default and only deletes these leftovers once they meet `--min-age` (60 minutes by default). It does not delete or update models because of `template-stale`, `outdated`, `template-vs-base`, `newer-revision`, or `old-revision` findings.
+
 </details>
 
 <details>

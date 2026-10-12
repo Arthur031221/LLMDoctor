@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Document stale-file criteria, template normalization, intentional upstream differences, and cleanup age limits.
 - Explain how endpoint probes complement Ollama's context length selector and what a passing probe covers.
 - Keep plain-folder model identifiers slash-separated on Windows.
 - Fix links created from relative model store paths so they resolve correctly.
