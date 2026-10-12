@@ -283,6 +283,21 @@ A calibration request learns the server's characters per token. The context prob
 ## FAQ
 
 <details>
+<summary><b>Doesn't Ollama already have a context size selector?</b></summary>
+
+Yes. [Ollama's app settings include a context length slider](https://docs.ollama.com/context-length). Use it to choose the window you want, then check the endpoint and model your agent uses:
+
+```sh
+llm-doctor endpoint http://localhost:11434 --model YOUR_MODEL --only context
+```
+
+LLMDoctor sends test prompts and compares calibrated token estimates with the server's reported prompt-token counts and marker recall. It reports input loss even when the server returns HTTP 200, shows the loaded and advertised windows when available, and suggests backend-specific settings. Run it again after changing the window to check the result. The default probe tests levels up to 16,384 tokens, or 32,768 with `--deep`, within its time budget. It tests its own prompts, so a passing result does not guarantee that every application prompt will fit.
+
+The store scan also finds cross-store duplicates, orphan blobs, and upstream template or model-file changes, and `unbundle` exposes Ollama weights to other runtimes. These checks and exports are useful alongside Ollama's settings.
+
+</details>
+
+<details>
 <summary><b>Does it download or update models?</b></summary>
 
 No. It tells you what is stale and prints the `ollama pull` or `hf download` command.
