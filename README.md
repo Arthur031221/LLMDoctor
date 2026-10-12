@@ -227,6 +227,8 @@ LLMDoctor reads local manifests and model files, hashes only files that need com
 
 **Stores.** Ollama manifests (`manifests/<host>/<namespace>/<model>/<tag>`) list layers by media type: weights, projector, adapter, params, template, and system. Blobs that no manifest references are orphans. `-partial` files are unfinished pulls. The Hugging Face cache is read from `refs`, `snapshots`, and `blobs`, including the huggingface_hub 2.0 layout where each repo blob is a symlink into a shared, xet-hashed store. LM Studio folders follow `<publisher>/<repo>/<file>.gguf`. Folders with `config.json` next to `*.safetensors` are MLX or transformers models.
 
+If a permission error prevents checking an optional system Ollama location, auto-discovery skips it and continues with the other stores.
+
 **Duplicates.** Files are grouped by size first. Only files that share a size with another physical file get hashed, and only if the store does not already name them by sha256. Ollama and Hugging Face LFS blobs are named by their sha256, so in practice only LM Studio and loose files are read. Hashes are cached in `~/.llm-doctor/cache.json` keyed by path, size, mtime, and inode. Hardlinks and existing symlinks count once.
 
 </details>

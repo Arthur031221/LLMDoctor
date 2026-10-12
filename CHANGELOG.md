@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Skip optional system Ollama locations that cannot be checked due to permissions, so scans can continue on Python 3.10 and 3.12.
 - Document stale-file criteria, template normalization, intentional upstream differences, and cleanup age limits.
 - Explain how endpoint probes complement Ollama's context length selector and what a passing probe covers.
 - Keep plain-folder model identifiers slash-separated on Windows.

@@ -36,8 +36,9 @@ def default_roots() -> list[Path]:
         return [Path(env).expanduser()]
     roots = [Path.home() / ".ollama" / "models"]
     for extra in (Path("/usr/share/ollama/.ollama/models"), Path("/var/lib/ollama/models")):
-        if extra.is_dir():
-            roots.append(extra)
+        with contextlib.suppress(PermissionError):
+            if extra.is_dir():
+                roots.append(extra)
     return roots
 
 

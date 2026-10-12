@@ -1,10 +1,31 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 
 from helpers import TEMPLATE_OLD, add_hf_file, add_ollama_blob, add_ollama_model, write_gguf
 
 from llm_doctor.stores import discover, folders, huggingface, ollama
+
+
+def test_ollama_default_roots_skip_inaccessible_system_store(env, monkeypatch):
+    monkeypatch.delenv("OLLAMA_MODELS")
+    inaccessible = Path("/usr/share/ollama/.ollama/models")
+    readable = Path("/var/lib/ollama/models")
+    original_is_dir = Path.is_dir
+
+    def is_dir(path):
+        if path == inaccessible:
+            raise PermissionError(13, "Permission denied", str(path))
+        if path == readable:
+            return True
+        return original_is_dir(path)
+
+    monkeypatch.setattr(Path, "is_dir", is_dir)
+
+    assert ollama.default_roots() == [env["ollama"], readable]
+    monkeypatch.setenv("OLLAMA_MODELS", str(env["ollama"]))
+    assert ollama.default_roots() == [env["ollama"]]
 
 
 def test_ollama_scan_names_layers_orphans_partials(env, tmp_path):
